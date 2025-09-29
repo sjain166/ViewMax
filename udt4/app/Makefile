@@ -18,8 +18,8 @@ ifeq ($(arch), POWERPC)
    CCFLAGS += -mcpu=powerpc
 endif
 
-ifeq ($(arch), IA64)
-   CCFLAGS += -DIA64
+ifeq ($(arch), X86_64)
+   CCFLAGS += -DX86_64
 endif
 
 ifeq ($(arch), SPARC)
