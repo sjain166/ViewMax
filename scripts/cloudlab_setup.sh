@@ -22,5 +22,3 @@ ssh -t -i "$SSH_KEY" ymangel2@"$HOSTNAME" << 'EOF'
   sudo DEBIAN_FRONTEND=noninteractive apt update && sudo DEBIAN_FRONTEND=noninteractive apt install -y wireshark && sudo apt install -y git kathara
   git clone https://github.com/jeffbyju/optimized_vr_streaming.git
 EOF
-
-
