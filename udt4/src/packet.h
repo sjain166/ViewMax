@@ -176,6 +176,80 @@ public:
    int32_t getMsgSeq() const;
 
       // Functionality:
+      //    Read the frame ID (for VR streaming).
+      // Parameters:
+      //    None.
+      // Returned value:
+      //    Frame ID (16 bits: 0-65535).
+
+   int32_t getFrameID() const;
+
+      // Functionality:
+      //    Set the frame ID (for VR streaming).
+      // Parameters:
+      //    0) [in] frame_id: Frame ID to set (0-65535).
+      // Returned value:
+      //    None.
+
+   void setFrameID(int32_t frame_id);
+
+      // Functionality:
+      //    Read the chunk ID within a frame (for VR streaming).
+      // Parameters:
+      //    None.
+      // Returned value:
+      //    Chunk ID (8 bits: 0-255).
+
+   int32_t getChunkID() const;
+
+      // Functionality:
+      //    Set the chunk ID (for VR streaming).
+      // Parameters:
+      //    0) [in] chunk_id: Chunk ID to set (0-255).
+      // Returned value:
+      //    None.
+
+   void setChunkID(int32_t chunk_id);
+
+      // Functionality:
+      //    Read the total number of chunks in the frame (for VR streaming).
+      // Parameters:
+      //    None.
+      // Returned value:
+      //    Total chunks (8 bits: 0-255).
+
+   int32_t getTotalChunks() const;
+
+      // Functionality:
+      //    Set the total number of chunks in the frame (for VR streaming).
+      // Parameters:
+      //    0) [in] total_chunks: Total chunks to set (0-255).
+      // Returned value:
+      //    None.
+
+   void setTotalChunks(int32_t total_chunks);
+
+      // Functionality:
+      //    Read the frame deadline timestamp (for VR streaming).
+      //    This reuses the timestamp field (m_nHeader[2]) which UDT doesn't actually use.
+      // Parameters:
+      //    None.
+      // Returned value:
+      //    Frame deadline in microseconds (32 bits).
+
+   int64_t getFrameDeadline() const;
+
+      // Functionality:
+      //    Set the frame deadline timestamp (for VR streaming).
+      //    This reuses the timestamp field (m_nHeader[2]).
+      // Parameters:
+      //    0) [in] deadline_us: Deadline timestamp in microseconds.
+      // Returned value:
+      //    None.
+
+   void setFrameDeadline(int64_t deadline_us);
+
+      // Functionality:
       //    Clone this packet.
       // Parameters:
       //    None.
@@ -185,7 +259,7 @@ public:
    CPacket* clone() const;
 
 protected:
-   uint32_t m_nHeader[4];               // The 128-bit header field
+   uint32_t m_nHeader[5];               // The 160-bit header field (extended for VR frame metadata)
    iovec m_PacketVector[2];             // The 2-demension vector of UDT packet [header, data]
 
    int32_t __pad;

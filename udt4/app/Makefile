@@ -38,7 +38,7 @@ endif
 
 DIR = $(shell pwd)
 
-APP = appserver appclient sendfile recvfile test
+APP = appserver appclient sendfile recvfile test test_frame_metadata
 
 all: $(APP)
 
@@ -54,6 +54,8 @@ sendfile: sendfile.o
 recvfile: recvfile.o
 	$(C++) $^ -o $@ $(LDFLAGS)
 test: test.o
+	$(C++) $^ -o $@ $(LDFLAGS)
+test_frame_metadata: test_frame_metadata.o
 	$(C++) $^ -o $@ $(LDFLAGS)
 
 clean:

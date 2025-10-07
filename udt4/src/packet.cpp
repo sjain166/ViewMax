@@ -147,7 +147,7 @@ written by
 #include "packet.h"
 
 
-const int CPacket::m_iPktHdrSize = 16;
+const int CPacket::m_iPktHdrSize = 20;  // Extended from 16 to 20 bytes (added m_nHeader[4] for frame metadata)
 const int CHandShake::m_iContentSize = 48;
 
 
@@ -155,15 +155,15 @@ const int CHandShake::m_iContentSize = 48;
 CPacket::CPacket():
 m_iSeqNo((int32_t&)(m_nHeader[0])),
 m_iMsgNo((int32_t&)(m_nHeader[1])),
-m_iTimeStamp((int32_t&)(m_nHeader[2])),
+m_iTimeStamp((int32_t&)(m_nHeader[2])),  // Repurposed for FRAME_DEADLINE
 m_iID((int32_t&)(m_nHeader[3])),
 m_pcData((char*&)(m_PacketVector[1].iov_base)),
 __pad()
 {
-   for (int i = 0; i < 4; ++ i)
+   for (int i = 0; i < 5; ++ i)  // Changed from 4 to 5
       m_nHeader[i] = 0;
    m_PacketVector[0].iov_base = (char *)m_nHeader;
-   m_PacketVector[0].iov_len = CPacket::m_iPktHdrSize;
+   m_PacketVector[0].iov_len = CPacket::m_iPktHdrSize;  // Now 20 bytes
    m_PacketVector[1].iov_base = NULL;
    m_PacketVector[1].iov_len = 0;
 }
@@ -341,6 +341,54 @@ int32_t CPacket::getMsgSeq() const
 {
    // read [1] bit 3~31
    return m_nHeader[1] & 0x1FFFFFFF;
+}
+
+int32_t CPacket::getFrameID() const
+{
+   // read [4] bits 0-15 (16 bits for frame ID)
+   return m_nHeader[4] & 0xFFFF;
+}
+
+void CPacket::setFrameID(int32_t frame_id)
+{
+   // clear bits 0-15, then set frame_id
+   m_nHeader[4] = (m_nHeader[4] & 0xFFFF0000) | (frame_id & 0xFFFF);
+}
+
+int32_t CPacket::getChunkID() const
+{
+   // read [4] bits 16-23 (8 bits for chunk ID)
+   return (m_nHeader[4] >> 16) & 0xFF;
+}
+
+void CPacket::setChunkID(int32_t chunk_id)
+{
+   // clear bits 16-23, then set chunk_id
+   m_nHeader[4] = (m_nHeader[4] & 0xFF00FFFF) | ((chunk_id & 0xFF) << 16);
+}
+
+int32_t CPacket::getTotalChunks() const
+{
+   // read [4] bits 24-31 (8 bits for total chunks)
+   return (m_nHeader[4] >> 24) & 0xFF;
+}
+
+void CPacket::setTotalChunks(int32_t total_chunks)
+{
+   // clear bits 24-31, then set total_chunks
+   m_nHeader[4] = (m_nHeader[4] & 0x00FFFFFF) | ((total_chunks & 0xFF) << 24);
+}
+
+int64_t CPacket::getFrameDeadline() const
+{
+   // Reuse m_iTimeStamp (alias to m_nHeader[2]) for frame deadline
+   return (int64_t)m_iTimeStamp;
+}
+
+void CPacket::setFrameDeadline(int64_t deadline_us)
+{
+   // Store lower 32 bits of deadline in timestamp field
+   m_iTimeStamp = (int32_t)(deadline_us & 0xFFFFFFFF);
 }
 
 CPacket* CPacket::clone() const
