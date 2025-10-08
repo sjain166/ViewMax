@@ -2152,6 +2152,27 @@ UDTSTATUS CUDT::getsockstate(UDTSOCKET u)
    }
 }
 
+int CUDT::set_next_frame_metadata(UDTSOCKET u, uint16_t frame_id, uint8_t chunk_id,
+                                    uint8_t total_chunks, int64_t deadline_us)
+{
+   try
+   {
+      CUDT* udt = s_UDTUnited.lookup(u);
+      udt->setNextFrameMetadata(frame_id, chunk_id, total_chunks, deadline_us);
+      return 0;
+   }
+   catch (CUDTException& e)
+   {
+      s_UDTUnited.setError(new CUDTException(e));
+      return ERROR;
+   }
+   catch (...)
+   {
+      s_UDTUnited.setError(new CUDTException(-1, 0, 0));
+      return ERROR;
+   }
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -2387,6 +2408,13 @@ int perfmon(UDTSOCKET u, TRACEINFO* perf, bool clear)
 UDTSTATUS getsockstate(UDTSOCKET u)
 {
    return CUDT::getsockstate(u);
+}
+
+// VR Frame Awareness: Set frame metadata for next packet
+int set_next_frame_metadata(UDTSOCKET u, uint16_t frame_id, uint8_t chunk_id,
+                             uint8_t total_chunks, int64_t deadline_us)
+{
+   return CUDT::set_next_frame_metadata(u, frame_id, chunk_id, total_chunks, deadline_us);
 }
 
 }  // namespace UDT

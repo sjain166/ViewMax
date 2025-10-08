@@ -96,8 +96,15 @@ int main(int argc, char* argv[])
    //if (NULL != cchandle)
    //   cchandle->setRate(500);
 
-   int size = 100000;
-   char* data = new char[size];
+   // VR Frame Awareness Test: Send 100 frames × 100 chunks
+   const int TOTAL_FRAMES = 1;
+   const int CHUNKS_PER_FRAME = 100;
+   const int CHUNK_SIZE = 1400;
+   char* data = new char[CHUNK_SIZE];
+
+   // Fill data with pattern for testing
+   for (int i = 0; i < CHUNK_SIZE; i++)
+      data[i] = i % 256;
 
    #ifndef WIN32
       pthread_create(new pthread_t, NULL, monitor, &client);
@@ -105,24 +112,46 @@ int main(int argc, char* argv[])
       CreateThread(NULL, 0, monitor, &client, 0, NULL);
    #endif
 
-   for (int i = 0; i < 1000000; i ++)
+   cout << "Sending " << TOTAL_FRAMES << " frames with " << CHUNKS_PER_FRAME
+        << " chunks each (" << CHUNK_SIZE << " bytes/chunk)" << endl;
+
+   for (int frame = 0; frame < TOTAL_FRAMES; frame++)
    {
-      int ssize = 0;
-      int ss;
-      while (ssize < size)
+      // Calculate frame deadline (example: 16ms per frame = 16000 us)
+      int64_t deadline = (frame + 1) * 16000;
+
+      for (int chunk = 0; chunk < CHUNKS_PER_FRAME; chunk++)
       {
-         if (UDT::ERROR == (ss = UDT::send(client, data + ssize, size - ssize, 0)))
+         // Set frame metadata before sending each chunk
+         if (UDT::ERROR == UDT::set_next_frame_metadata(client, frame, chunk, CHUNKS_PER_FRAME, deadline))
          {
-            cout << "send:" << UDT::getlasterror().getErrorMessage() << endl;
+            cout << "set_next_frame_metadata: " << UDT::getlasterror().getErrorMessage() << endl;
             break;
          }
 
-         ssize += ss;
+         // Send the chunk
+         int ssize = 0;
+         int ss;
+         while (ssize < CHUNK_SIZE)
+         {
+            if (UDT::ERROR == (ss = UDT::send(client, data + ssize, CHUNK_SIZE - ssize, 0)))
+            {
+               cout << "send:" << UDT::getlasterror().getErrorMessage() << endl;
+               break;
+            }
+            ssize += ss;
+         }
+
+         if (ssize < CHUNK_SIZE)
+            break;
       }
 
-      if (ssize < size)
-         break;
+      // Print progress every 10 frames
+      if ((frame + 1) % 10 == 0)
+         cout << "Sent " << (frame + 1) << " frames..." << endl;
    }
+
+   cout << "All frames sent successfully!" << endl;
 
    UDT::close(client);
    delete [] data;

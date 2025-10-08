@@ -54,6 +54,7 @@ written by
 #endif
 #include <cmath>
 #include <sstream>
+#include <iostream>
 #include "queue.h"
 #include "core.h"
 
@@ -131,6 +132,13 @@ CUDT::CUDT()
    m_bBroken = false;
    m_bPeerHealth = true;
    m_ullLingerExpiration = 0;
+
+   // VR Frame Awareness: Initialize metadata fields
+   m_iNextFrameID = 0;
+   m_iNextChunkID = 0;
+   m_iNextTotalChunks = 0;
+   m_iNextFrameDeadline = 0;
+   m_bHasFrameMetadata = false;
 }
 
 CUDT::CUDT(const CUDT& ancestor)
@@ -184,6 +192,13 @@ CUDT::CUDT(const CUDT& ancestor)
    m_bBroken = false;
    m_bPeerHealth = true;
    m_ullLingerExpiration = 0;
+
+   // VR Frame Awareness: Initialize metadata fields
+   m_iNextFrameID = 0;
+   m_iNextChunkID = 0;
+   m_iNextTotalChunks = 0;
+   m_iNextFrameDeadline = 0;
+   m_bHasFrameMetadata = false;
 }
 
 CUDT::~CUDT()
@@ -1117,6 +1132,16 @@ int CUDT::send(const char* data, int len)
    }
 
    return size;
+}
+
+void CUDT::setNextFrameMetadata(uint16_t frame_id, uint8_t chunk_id, uint8_t total_chunks, int64_t deadline_us)
+{
+   // Store metadata for next packet created by packData()
+   m_iNextFrameID = frame_id;
+   m_iNextChunkID = chunk_id;
+   m_iNextTotalChunks = total_chunks;
+   m_iNextFrameDeadline = deadline_us;
+   m_bHasFrameMetadata = true;
 }
 
 int CUDT::recv(char* data, int len)
@@ -2347,6 +2372,12 @@ int CUDT::packData(CPacket& packet, uint64_t& ts)
    packet.m_iID = m_PeerID;
    packet.setLength(payload);
 
+   // VR Frame Awareness: Always set frame metadata (persistent until explicitly changed)
+   packet.setFrameID(m_iNextFrameID);
+   packet.setChunkID(m_iNextChunkID);
+   packet.setTotalChunks(m_iNextTotalChunks);
+   packet.setFrameDeadline(m_iNextFrameDeadline);
+
    m_pCC->onPktSent(&packet);
    //m_pSndTimeWindow->onPktSent(packet.m_iTimeStamp);
 
@@ -2385,6 +2416,17 @@ int CUDT::packData(CPacket& packet, uint64_t& ts)
 int CUDT::processData(CUnit* unit)
 {
    CPacket& packet = unit->m_Packet;
+
+   // VR Frame Awareness: Read and print frame metadata
+   uint16_t frame_id = packet.getFrameID();
+   uint8_t chunk_id = packet.getChunkID();
+   uint8_t total_chunks = packet.getTotalChunks();
+   int64_t deadline = packet.getFrameDeadline();
+
+   std::cout << "RCV: Seq=" << packet.m_iSeqNo
+             << " Frame=" << frame_id
+             << " Chunk=" << (int)chunk_id << "/" << (int)total_chunks
+             << " Deadline=" << deadline << "us" << std::endl;
 
    // Just heard from the peer, reset the expiration count.
    m_iEXPCount = 1;

@@ -352,6 +352,10 @@ UDT_API const char* getlasterror_desc();
 UDT_API int perfmon(UDTSOCKET u, TRACEINFO* perf, bool clear = true);
 UDT_API UDTSTATUS getsockstate(UDTSOCKET u);
 
+// VR Frame Awareness: Set frame metadata for next packet
+UDT_API int set_next_frame_metadata(UDTSOCKET u, uint16_t frame_id, uint8_t chunk_id,
+                                     uint8_t total_chunks, int64_t deadline_us);
+
 }  // namespace UDT
 
 #endif

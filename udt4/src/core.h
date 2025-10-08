@@ -107,9 +107,22 @@ public: //API
    static CUDTException& getlasterror();
    static int perfmon(UDTSOCKET u, CPerfMon* perf, bool clear = true);
    static UDTSTATUS getsockstate(UDTSOCKET u);
+   static int set_next_frame_metadata(UDTSOCKET u, uint16_t frame_id, uint8_t chunk_id, uint8_t total_chunks, int64_t deadline_us);
 
 public: // internal API
    static CUDT* getUDTHandle(UDTSOCKET u);
+
+      // Functionality:
+      //    Set frame metadata for the next packet to be sent.
+      // Parameters:
+      //    0) [in] frame_id: Frame ID (0-65535)
+      //    1) [in] chunk_id: Chunk ID within frame (0-255)
+      //    2) [in] total_chunks: Total chunks in this frame (0-255)
+      //    3) [in] deadline_us: Frame deadline in microseconds
+      // Returned value:
+      //    None.
+
+   void setNextFrameMetadata(uint16_t frame_id, uint8_t chunk_id, uint8_t total_chunks, int64_t deadline_us);
 
 private:
       // Functionality:
@@ -346,6 +359,13 @@ private: // Sending related data
    uint64_t m_ullSndLastAck2Time;               // The time when last ACK2 was sent back
 
    int32_t m_iISN;                              // Initial Sequence Number
+
+   // VR Frame Awareness: Metadata for next packet to be sent
+   uint16_t m_iNextFrameID;                     // Frame ID for next packet (0-65535)
+   uint8_t m_iNextChunkID;                      // Chunk ID for next packet (0-255)
+   uint8_t m_iNextTotalChunks;                  // Total chunks in frame (0-255)
+   int64_t m_iNextFrameDeadline;                // Frame deadline in microseconds
+   bool m_bHasFrameMetadata;                    // True if metadata has been set for next packet
 
    void CCUpdate();
 

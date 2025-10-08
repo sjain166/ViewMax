@@ -117,34 +117,48 @@ DWORD WINAPI recvdata(LPVOID usocket)
    UDTSOCKET recver = *(UDTSOCKET*)usocket;
    delete (UDTSOCKET*)usocket;
 
-   char* data;
-   int size = 100000;
-   data = new char[size];
+   // VR Frame Awareness Test: Receive 100 frames × 100 chunks
+   const int TOTAL_FRAMES = 1;
+   const int CHUNKS_PER_FRAME = 100;
+   const int CHUNK_SIZE = 1400;
+   const int TOTAL_CHUNKS = TOTAL_FRAMES * CHUNKS_PER_FRAME;
 
-   while (true)
+   char* data = new char[CHUNK_SIZE];
+   int chunks_received = 0;
+
+   cout << "Server ready to receive " << TOTAL_CHUNKS << " chunks ("
+        << TOTAL_FRAMES << " frames × " << CHUNKS_PER_FRAME << " chunks)" << endl;
+   cout << "Frame metadata will be printed by processData()..." << endl << endl;
+
+   while (chunks_received < TOTAL_CHUNKS)
    {
       int rsize = 0;
       int rs;
-      while (rsize < size)
+
+      // Receive one chunk at a time
+      while (rsize < CHUNK_SIZE)
       {
-         int rcv_size;
-         int var_size = sizeof(int);
-         UDT::getsockopt(recver, 0, UDT_RCVDATA, &rcv_size, &var_size);
-         if (UDT::ERROR == (rs = UDT::recv(recver, data + rsize, size - rsize, 0)))
+         if (UDT::ERROR == (rs = UDT::recv(recver, data + rsize, CHUNK_SIZE - rsize, 0)))
          {
             cout << "recv:" << UDT::getlasterror().getErrorMessage() << endl;
             break;
          }
-
          rsize += rs;
       }
 
-      if (rsize < size)
+      if (rsize < CHUNK_SIZE)
          break;
+
+      chunks_received++;
+
+      // Print progress every 1000 chunks
+      if (chunks_received % 1000 == 0)
+         cout << "Received " << chunks_received << " chunks..." << endl;
    }
 
-   delete [] data;
+   cout << endl << "Total chunks received: " << chunks_received << "/" << TOTAL_CHUNKS << endl;
 
+   delete [] data;
    UDT::close(recver);
 
    #ifndef WIN32
