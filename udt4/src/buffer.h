@@ -60,10 +60,16 @@ public:
       //    1) [in] len: size of the block.
       //    2) [in] ttl: time to live in milliseconds
       //    3) [in] order: if the block should be delivered in order, for DGRAM only
+      //    4) [in] frame_id: VR frame ID (0-65535)
+      //    5) [in] chunk_id: VR chunk ID (0-255)
+      //    6) [in] total_chunks: VR total chunks in frame (0-255)
+      //    7) [in] frame_deadline: VR frame deadline in microseconds
       // Returned value:
       //    None.
 
-   void addBuffer(const char* data, int len, int ttl = -1, bool order = false);
+   void addBuffer(const char* data, int len, int ttl = -1, bool order = false,
+                  uint16_t frame_id = 0, uint8_t chunk_id = 0,
+                  uint8_t total_chunks = 0, int64_t frame_deadline = 0);
 
       // Functionality:
       //    Read a block of data from file and insert it into the sending list.
@@ -86,6 +92,22 @@ public:
    int readData(char** data, int32_t& msgno);
 
       // Functionality:
+      //    Find data position to pack a DATA packet from the furthest reading point (VR-aware).
+      // Parameters:
+      //    0) [out] data: the pointer to the data position.
+      //    1) [out] msgno: message number of the packet.
+      //    2) [out] frame_id: VR frame ID
+      //    3) [out] chunk_id: VR chunk ID
+      //    4) [out] total_chunks: VR total chunks
+      //    5) [out] frame_deadline: VR frame deadline
+      // Returned value:
+      //    Actual length of data read.
+
+   int readData(char** data, int32_t& msgno,
+                uint16_t& frame_id, uint8_t& chunk_id,
+                uint8_t& total_chunks, int64_t& frame_deadline);
+
+      // Functionality:
       //    Find data position to pack a DATA packet for a retransmission.
       // Parameters:
       //    0) [out] data: the pointer to the data position.
@@ -96,6 +118,24 @@ public:
       //    Actual length of data read.
 
    int readData(char** data, const int offset, int32_t& msgno, int& msglen);
+
+      // Functionality:
+      //    Find data position to pack a DATA packet for a retransmission (VR-aware).
+      // Parameters:
+      //    0) [out] data: the pointer to the data position.
+      //    1) [in] offset: offset from the last ACK point.
+      //    2) [out] msgno: message number of the packet.
+      //    3) [out] msglen: length of the message
+      //    4) [out] frame_id: VR frame ID
+      //    5) [out] chunk_id: VR chunk ID
+      //    6) [out] total_chunks: VR total chunks
+      //    7) [out] frame_deadline: VR frame deadline
+      // Returned value:
+      //    Actual length of data read.
+
+   int readData(char** data, const int offset, int32_t& msgno, int& msglen,
+                uint16_t& frame_id, uint8_t& chunk_id,
+                uint8_t& total_chunks, int64_t& frame_deadline);
 
       // Functionality:
       //    Update the ACK point and may release/unmap/return the user data according to the flag.
@@ -129,6 +169,12 @@ private:
       int32_t m_iMsgNo;                 // message number
       uint64_t m_OriginTime;            // original request time
       int m_iTTL;                       // time to live (milliseconds)
+
+      // VR Frame Awareness: Frame metadata
+      uint16_t m_iFrameID;              // Frame ID (0-65535)
+      uint8_t m_iChunkID;               // Chunk ID (0-255)
+      uint8_t m_iTotalChunks;           // Total chunks (0-255)
+      int64_t m_iFrameDeadline;         // Frame deadline (microseconds)
 
       Block* m_pNext;                   // next block
    } *m_pBlock, *m_pFirstBlock, *m_pCurrBlock, *m_pLastBlock;

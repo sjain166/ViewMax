@@ -1120,7 +1120,10 @@ int CUDT::send(const char* data, int len)
       m_llSndDurationCounter = CTimer::getTime();
 
    // insert the user buffer into the sening list
-   m_pSndBuffer->addBuffer(data, size);
+   // VR Frame Awareness: Pass metadata from global variables to buffer
+   m_pSndBuffer->addBuffer(data, size, -1, false,
+                           m_iNextFrameID, m_iNextChunkID,
+                           m_iNextTotalChunks, m_iNextFrameDeadline);
 
    // insert this socket to snd list if it is not on the list yet
    m_pSndQueue->m_pSndUList->update(this, false);
@@ -2307,8 +2310,13 @@ int CUDT::packData(CPacket& packet, uint64_t& ts)
          return 0;
 
       int msglen;
+      // VR Frame Awareness: Declare metadata variables for retransmissions
+      uint16_t frame_id;
+      uint8_t chunk_id, total_chunks;
+      int64_t frame_deadline;
 
-      payload = m_pSndBuffer->readData(&(packet.m_pcData), offset, packet.m_iMsgNo, msglen);
+      payload = m_pSndBuffer->readData(&(packet.m_pcData), offset, packet.m_iMsgNo, msglen,
+                                       frame_id, chunk_id, total_chunks, frame_deadline);
 
       if (-1 == payload)
       {
@@ -2329,6 +2337,12 @@ int CUDT::packData(CPacket& packet, uint64_t& ts)
       else if (0 == payload)
          return 0;
 
+      // VR Frame Awareness: Set metadata from buffer for retransmissions
+      packet.setFrameID(frame_id);
+      packet.setChunkID(chunk_id);
+      packet.setTotalChunks(total_chunks);
+      packet.setFrameDeadline(frame_deadline);
+
       ++ m_iTraceRetrans;
       ++ m_iRetransTotal;
    }
@@ -2340,12 +2354,24 @@ int CUDT::packData(CPacket& packet, uint64_t& ts)
       int cwnd = (m_iFlowWindowSize < (int)m_dCongestionWindow) ? m_iFlowWindowSize : (int)m_dCongestionWindow;
       if (cwnd >= CSeqNo::seqlen(m_iSndLastAck, CSeqNo::incseq(m_iSndCurrSeqNo)))
       {
-         if (0 != (payload = m_pSndBuffer->readData(&(packet.m_pcData), packet.m_iMsgNo)))
+         // VR Frame Awareness: Declare metadata variables for new packets
+         uint16_t frame_id;
+         uint8_t chunk_id, total_chunks;
+         int64_t frame_deadline;
+
+         if (0 != (payload = m_pSndBuffer->readData(&(packet.m_pcData), packet.m_iMsgNo,
+                                                     frame_id, chunk_id, total_chunks, frame_deadline)))
          {
             m_iSndCurrSeqNo = CSeqNo::incseq(m_iSndCurrSeqNo);
             m_pCC->setSndCurrSeqNo(m_iSndCurrSeqNo);
 
             packet.m_iSeqNo = m_iSndCurrSeqNo;
+
+            // VR Frame Awareness: Set metadata from buffer
+            packet.setFrameID(frame_id);
+            packet.setChunkID(chunk_id);
+            packet.setTotalChunks(total_chunks);
+            packet.setFrameDeadline(frame_deadline);
 
             // every 16 (0xF) packets, a packet pair is sent
             if (0 == (packet.m_iSeqNo & 0xF))
@@ -2371,12 +2397,6 @@ int CUDT::packData(CPacket& packet, uint64_t& ts)
    packet.m_iTimeStamp = int(CTimer::getTime() - m_StartTime);
    packet.m_iID = m_PeerID;
    packet.setLength(payload);
-
-   // VR Frame Awareness: Always set frame metadata (persistent until explicitly changed)
-   packet.setFrameID(m_iNextFrameID);
-   packet.setChunkID(m_iNextChunkID);
-   packet.setTotalChunks(m_iNextTotalChunks);
-   packet.setFrameDeadline(m_iNextFrameDeadline);
 
    m_pCC->onPktSent(&packet);
    //m_pSndTimeWindow->onPktSent(packet.m_iTimeStamp);

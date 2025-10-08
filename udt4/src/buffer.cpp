@@ -69,6 +69,11 @@ m_iCount(0)
    {
       pb->m_pNext = new Block;
       pb->m_iMsgNo = 0;
+      // VR Frame Awareness: Initialize frame metadata
+      pb->m_iFrameID = 0;
+      pb->m_iChunkID = 0;
+      pb->m_iTotalChunks = 0;
+      pb->m_iFrameDeadline = 0;
       pb = pb->m_pNext;
    }
    pb->m_pNext = m_pBlock;
@@ -117,7 +122,9 @@ CSndBuffer::~CSndBuffer()
    #endif
 }
 
-void CSndBuffer::addBuffer(const char* data, int len, int ttl, bool order)
+void CSndBuffer::addBuffer(const char* data, int len, int ttl, bool order,
+                           uint16_t frame_id, uint8_t chunk_id,
+                           uint8_t total_chunks, int64_t frame_deadline)
 {
    int size = len / m_iMSS;
    if ((len % m_iMSS) != 0)
@@ -149,6 +156,12 @@ void CSndBuffer::addBuffer(const char* data, int len, int ttl, bool order)
 
       s->m_OriginTime = time;
       s->m_iTTL = ttl;
+
+      // VR Frame Awareness: Store metadata in each block
+      s->m_iFrameID = frame_id;
+      s->m_iChunkID = chunk_id;
+      s->m_iTotalChunks = total_chunks;
+      s->m_iFrameDeadline = frame_deadline;
 
       s = s->m_pNext;
    }
@@ -229,6 +242,29 @@ int CSndBuffer::readData(char** data, int32_t& msgno)
    return readlen;
 }
 
+int CSndBuffer::readData(char** data, int32_t& msgno,
+                         uint16_t& frame_id, uint8_t& chunk_id,
+                         uint8_t& total_chunks, int64_t& frame_deadline)
+{
+   // No data to read
+   if (m_pCurrBlock == m_pLastBlock)
+      return 0;
+
+   *data = m_pCurrBlock->m_pcData;
+   int readlen = m_pCurrBlock->m_iLength;
+   msgno = m_pCurrBlock->m_iMsgNo;
+
+   // VR Frame Awareness: Retrieve metadata from block
+   frame_id = m_pCurrBlock->m_iFrameID;
+   chunk_id = m_pCurrBlock->m_iChunkID;
+   total_chunks = m_pCurrBlock->m_iTotalChunks;
+   frame_deadline = m_pCurrBlock->m_iFrameDeadline;
+
+   m_pCurrBlock = m_pCurrBlock->m_pNext;
+
+   return readlen;
+}
+
 int CSndBuffer::readData(char** data, const int offset, int32_t& msgno, int& msglen)
 {
    CGuard bufferguard(m_BufLock);
@@ -261,6 +297,50 @@ int CSndBuffer::readData(char** data, const int offset, int32_t& msgno, int& msg
    *data = p->m_pcData;
    int readlen = p->m_iLength;
    msgno = p->m_iMsgNo;
+
+   return readlen;
+}
+
+int CSndBuffer::readData(char** data, const int offset, int32_t& msgno, int& msglen,
+                         uint16_t& frame_id, uint8_t& chunk_id,
+                         uint8_t& total_chunks, int64_t& frame_deadline)
+{
+   CGuard bufferguard(m_BufLock);
+
+   Block* p = m_pFirstBlock;
+
+   for (int i = 0; i < offset; ++ i)
+      p = p->m_pNext;
+
+   if ((p->m_iTTL >= 0) && ((CTimer::getTime() - p->m_OriginTime) / 1000 > (uint64_t)p->m_iTTL))
+   {
+      msgno = p->m_iMsgNo & 0x1FFFFFFF;
+
+      msglen = 1;
+      p = p->m_pNext;
+      bool move = false;
+      while (msgno == (p->m_iMsgNo & 0x1FFFFFFF))
+      {
+         if (p == m_pCurrBlock)
+            move = true;
+         p = p->m_pNext;
+         if (move)
+            m_pCurrBlock = p;
+         msglen ++;
+      }
+
+      return -1;
+   }
+
+   *data = p->m_pcData;
+   int readlen = p->m_iLength;
+   msgno = p->m_iMsgNo;
+
+   // VR Frame Awareness: Retrieve metadata from block (for retransmissions too)
+   frame_id = p->m_iFrameID;
+   chunk_id = p->m_iChunkID;
+   total_chunks = p->m_iTotalChunks;
+   frame_deadline = p->m_iFrameDeadline;
 
    return readlen;
 }
