@@ -118,7 +118,7 @@ DWORD WINAPI recvdata(LPVOID usocket)
    delete (UDTSOCKET*)usocket;
 
    // VR Frame Awareness Test: Receive 100 frames × 100 chunks
-   const int TOTAL_FRAMES = 1;
+   const int TOTAL_FRAMES = 10;
    const int CHUNKS_PER_FRAME = 100;
    const int CHUNK_SIZE = 1400;
    const int TOTAL_CHUNKS = TOTAL_FRAMES * CHUNKS_PER_FRAME;

@@ -97,7 +97,7 @@ int main(int argc, char* argv[])
    //   cchandle->setRate(500);
 
    // VR Frame Awareness Test: Send 100 frames × 100 chunks
-   const int TOTAL_FRAMES = 1;
+   const int TOTAL_FRAMES = 10;
    const int CHUNKS_PER_FRAME = 100;
    const int CHUNK_SIZE = 1400;
    char* data = new char[CHUNK_SIZE];
